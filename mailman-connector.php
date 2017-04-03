@@ -4,7 +4,8 @@ Plugin Name: mailman wordpress connector
 Description: Simple subscribe form to a mailman mailing list
 Version: 1.0
 Author: amicaldo GmbH
-Author URI: http://amicaldo.de
+Author URI: https://www.amicaldo.de
+Text Domain: mm-connector
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 */
@@ -12,6 +13,14 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 // Create Settings Page
 add_action('admin_menu', 'mm_plugin_settings');
 add_action('admin_init', 'mm_admin_init');
+add_action('plugins_loaded', 'init');
+
+
+function init() {
+    $plugin_dir = basename(dirname(__FILE__));
+
+    load_plugin_textdomain( 'mm-connector', false, $plugin_dir );
+}
 
 function mm_plugin_settings() {
 	add_options_page('Mailman Settings', 'Mailman Settings', 'manage_options', 'mailman-setting-page', 'mm_display_settings');
