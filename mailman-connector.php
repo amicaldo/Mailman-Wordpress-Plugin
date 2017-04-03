@@ -76,7 +76,7 @@ function mm_html_form_code($response) {
     echo '</div>';
 
     //return response to user
-    if(isset($response)){
+    if(!empty($response)){
 	    if($response['code'] == 200) {
 		echo '<div>';
 		echo '<p style="text-align: center"><b>Erfolgreich eingetragen</b></p>';
