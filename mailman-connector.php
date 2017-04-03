@@ -27,7 +27,8 @@ function mm_admin_init() {
 
 function mm_mailman_section() {
 	echo '<p>Please fill in the following settings. All are required for this plugin to work correctly. If you need assistance please contact your mailing list provider.</p>';
-	echo '<p>Add the short code [mailman_subscribe_form] to any page or post you would like the form to display on.</p>';
+	echo '<p>Add the short code [mailman_subscribe_form] to any page or post you would like the <strong>subscribe</strong> form to display on.</p>';
+	echo '<p>Add the short code [mailman_unsubscribe_form] to any page or post you would like the <strong>unsubscribe</strong> form to display on.</p>';
 }
 
 function mm_list_name() {
@@ -61,17 +62,17 @@ function mm_display_settings() {
 // Prevent direct script access
 if(!defined('WPINC')){ die(); }
 
-function mm_html_form_code($response) {
+function mm_html_subscribe_form_code($response, $text) {
 	$tmp = mm_get_config();
     // display subscribe from
     // div's and form's ids and classes is not mandatory you can change or remove them as you like
     echo '<div id="form-wrapper" class="newsletter newsletter-subscription">';
     echo '<form action="' . esc_url( $_SERVER['REQUEST_URI'] ) . '" method="post">';
     echo '<p>';
-    echo 'Ihre E-Mail ';
-    echo '<input type="text" name="cf-email" value="' . ( isset( $_POST["cf-email"] ) ? esc_attr( $_POST["cf-email"] ) : '' ) . '" size="40" class="newsletter-email input-text"/>';
+    echo $text['label'].' ';
+    echo '<input type="text" name="mm-email" value="' . ( isset( $_POST["mm-email"] ) ? esc_attr( $_POST["mm-email"] ) : '' ) . '" size="40" class="newsletter-email input-text"/>';
     echo '</p>';
-    echo '<p><input type="submit" name="cf-submitted" value="Eintragen" class="sendbtn"/></p>';
+    echo '<p><input type="submit" name="mm-submitted" value="'.$text['button'].'" class="sendbtn"/></p>';
     echo '</form>';
     echo '</div>';
 
@@ -79,12 +80,12 @@ function mm_html_form_code($response) {
     if(!empty($response)){
 	    if($response['code'] == 200) {
 		echo '<div>';
-		echo '<p style="text-align: center"><b>Erfolgreich eingetragen</b></p>';
+		echo '<p style="text-align: center"><b>'.$text['success'].'</b></p>';
 		echo '</div>';
 		return true;
 	    } else {
 		echo '<div>';
-		echo '<p style="text-align: center"><b>Falsch eingetragen</b></p>'; 	
+		echo '<p style="text-align: center"><b>'.$text['failure'].'</b></p>';
 		echo '</div>';
 		return false;
 	    }
@@ -100,16 +101,30 @@ function mm_get_config() {
     return $config;
 }
 
-function mm_deliver_mail() {
+function mm_subscribe_handler() {
     // if the submit button is clicked
-    if ( isset( $_POST['cf-submitted'] ) ) {
+    if ( isset( $_POST['mm-submitted'] ) ) {
 
         // sanitize form values
-        $email   = sanitize_email( $_POST["cf-email"] );
+        $email   = sanitize_email( $_POST["mm-email"] );
 
         return mm_subscribe_to_list($email);
-        unset($_POST['cf-submitted']);
-        unset($_POST['cf-email']);
+        unset($_POST['mm-submitted']);
+        unset($_POST['mm-email']);
+    }
+    return false;
+}
+
+function mm_unsubscribe_handler() {
+    // if the submit button is clicked
+    if ( isset( $_POST['mm-submitted'] ) ) {
+
+        // sanitize form values
+        $email   = sanitize_email( $_POST["mm-email"] );
+
+        return mm_unsubscribe_from_list($email);
+        unset($_POST['mm-submitted']);
+        unset($_POST['mm-email']);
     }
     return false;
 }
@@ -117,16 +132,46 @@ function mm_deliver_mail() {
 function mm_subscribe_to_list($email) {
     $config = mm_get_config();
 
-    $path = '/members/add?subscribe_or_invite=0&send_welcome_msg_to_this_batch=0&notification_to_list_owner=0&subscribees_upload='.$email.'&adminpw='.$config['list_password'];
+    $path = '/members/add?subscribe_or_invite=0&send_welcome_msg_to_this_batch=1&notification_to_list_owner=0&subscribees_upload='.$email.'&adminpw='.$config['list_password'];
     $url = $config['mailman_url'] . $config['list_name'] . $path;
     $response = mm_get_data($url);
     return $response;
 }
 
-function mm_cf_shortcode() {
+function mm_unsubscribe_from_list($email) {
+    $config = mm_get_config();
+
+    $path = '/members/remove?send_unsub_ack_to_this_batch=1&send_unsub_notifications_to_list_owner=0&unsubscribees_upload='.$email.'&adminpw='.$config['list_password'];
+    $url = $config['mailman_url'] . $config['list_name'] . $path;
+
+    $response = mm_get_data($url);
+    return $response;
+}
+
+function mm_cf_subscribe_shortcode() {
     ob_start();
-    $response = mm_deliver_mail();
-    mm_html_form_code($response);
+    $response = mm_subscribe_handler();
+    mm_html_subscribe_form_code($response, [
+        'label' => __('Your E-Mail', 'mm-connector'),
+        'button' => __('Subscribe', 'mm-connector'),
+        'success' => __('successfully subscribed', 'mm-connector'),
+        'failure' => __('subscribe not successful', 'mm-connector')
+    ]);
+
+    return ob_get_clean();
+}
+
+function mm_cf_unsubscribe_shortcode() {
+    ob_start();
+    $response = mm_unsubscribe_handler();
+
+    mm_html_subscribe_form_code($response, [
+        'label' => __('Your E-Mail', 'mm-connector'),
+        'button' => __('Unsubscribe', 'mm-connector'),
+        'success' => __('unsubscribe successfully', 'mm-connector'),
+        'failure' => __('unsubscribe not succesful', 'mm-connector')
+    ]);
+
 
     return ob_get_clean();
 }
@@ -145,6 +190,7 @@ function mm_get_data($url) {
 	return array ('html'=>$data, 'code' => $response_code);
 }
 
-add_shortcode( 'mailman_subscribe_form', 'mm_cf_shortcode' );
+add_shortcode( 'mailman_subscribe_form', 'mm_cf_subscribe_shortcode' );
+add_shortcode( 'mailman_unsubscribe_form', 'mm_cf_unsubscribe_shortcode' );
 
 ?>
